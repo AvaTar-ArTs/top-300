@@ -1,0 +1,31 @@
+{
+  "topic": "example microtrend",
+  "current_state": "ignition",
+  "score": 91.4,
+  "forecast": {
+    "top_5_percent_24h": 0.41,
+    "top_5_percent_72h": 0.79,
+    "top_5_percent_7d": 0.88
+  },
+  "expected_growth": {
+    "24h": 1.7,
+    "72h": 4.8,
+    "7d": 8.1
+  },
+  "burst_probability": 0.91,
+  "change_point_probability": 0.94,
+  "trend_reproduction_rate": 2.7,
+  "cross_platform": {
+    "reddit": "leading",
+    "tiktok": "leading",
+    "google": "accelerating",
+    "youtube": "early"
+  },
+  "demand_forecast": 8.1,
+  "supply_forecast": 2.1,
+  "opportunity_ratio": 3.86,
+  "expected_peak_hours": 93,
+  "expected_half_life_days": 12,
+  "confidence": 0.83,
+  "note": "Illustrative schema only; these values are not a live forecast."
+}

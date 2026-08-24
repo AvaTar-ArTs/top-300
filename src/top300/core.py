@@ -1,9 +1,6 @@
-from __future__ import annotations
-
 from itertools import pairwise
 
 from .models import FeatureSnapshot
-
 
 WEIGHTS: dict[str, float] = {
     "lead_platform_activity": 8,

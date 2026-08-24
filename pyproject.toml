@@ -4,16 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "top-300"
-version = "0.1.0"
-description = "Research scaffold for probabilistic breakout-trend forecasting"
+version = "1.0.0"
+description = "Reproducible probabilistic breakout-trend forecasting and opportunity ranking"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [{name = "AvaTar-ArTs"}]
-dependencies = []
+dependencies = ["numpy>=1.26", "scikit-learn>=1.4"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+top300 = "top300.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -24,3 +27,6 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "RUF"]

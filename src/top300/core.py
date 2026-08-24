@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from itertools import pairwise
+
 from .models import FeatureSnapshot
 
 
@@ -32,49 +34,26 @@ def _validate_unit_interval(name: str, value: float) -> None:
 
 
 def score_snapshot(snapshot: FeatureSnapshot) -> float:
-    """Return the v0 weighted opportunity score on a 0..100 scale.
-
-    This is an intentionally transparent research baseline. Production versions
-    should learn/calibrate weights from walk-forward historical backtests.
-    """
-
     values = snapshot.as_dict()
     for name, value in values.items():
         _validate_unit_interval(name, value)
-
-    score = sum(values[name] * weight for name, weight in WEIGHTS.items())
-    return round(score, 3)
+    return round(sum(values[name] * weight for name, weight in WEIGHTS.items()), 3)
 
 
 def percent_growth(previous: float, current: float) -> float | None:
-    """Return percent growth, or None when the baseline is zero.
-
-    Zero baselines are deliberately not converted to infinity. A forecasting
-    engine should route those observations through absolute-volume and anomaly
-    checks instead of creating misleading growth percentages.
-    """
-
     if previous == 0:
         return None
     return ((current - previous) / abs(previous)) * 100
 
 
 def finite_differences(values: list[float]) -> dict[str, list[float]]:
-    """Compute discrete velocity, acceleration, and jerk series."""
-
-    velocity = [b - a for a, b in zip(values, values[1:])]
-    acceleration = [b - a for a, b in zip(velocity, velocity[1:])]
-    jerk = [b - a for a, b in zip(acceleration, acceleration[1:])]
-    return {
-        "velocity": velocity,
-        "acceleration": acceleration,
-        "jerk": jerk,
-    }
+    velocity = [b - a for a, b in pairwise(values)]
+    acceleration = [b - a for a, b in pairwise(velocity)]
+    jerk = [b - a for a, b in pairwise(acceleration)]
+    return {"velocity": velocity, "acceleration": acceleration, "jerk": jerk}
 
 
 def opportunity_ratio(demand_forecast: float, supply_forecast: float) -> float | None:
-    """Forecast demand/supply ratio; None means supply is zero/undefined."""
-
     if supply_forecast == 0:
         return None
     return demand_forecast / supply_forecast

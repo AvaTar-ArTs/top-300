@@ -70,9 +70,33 @@ def test_target_index_labels_only_future_emergence_inside_horizon() -> None:
     ]
     index = GoogleTrendTargetIndex(episodes, threshold=0.70)
 
-    assert index.label("Apple launches iPhone 18", as_of=cutoff, horizon=timedelta(hours=24), geography="US") == 1
-    assert index.label("OpenAI releases GPT 6", as_of=cutoff, horizon=timedelta(hours=24), geography="US") == 0
-    assert index.label("far future topic", as_of=cutoff, horizon=timedelta(hours=24), geography="US") == 0
+    assert (
+        index.label(
+            "Apple launches iPhone 18",
+            as_of=cutoff,
+            horizon=timedelta(hours=24),
+            geography="US",
+        )
+        == 1
+    )
+    assert (
+        index.label(
+            "OpenAI releases GPT 6",
+            as_of=cutoff,
+            horizon=timedelta(hours=24),
+            geography="US",
+        )
+        == 0
+    )
+    assert (
+        index.label(
+            "far future topic",
+            as_of=cutoff,
+            horizon=timedelta(hours=24),
+            geography="US",
+        )
+        == 0
+    )
 
 
 def test_target_index_uses_provider_native_breakdown_aliases() -> None:
@@ -104,5 +128,21 @@ def test_target_index_keeps_geographies_separate() -> None:
         started=cutoff + timedelta(hours=2),
     )
     index = GoogleTrendTargetIndex([episode])
-    assert index.label("Example Event", as_of=cutoff, horizon=timedelta(hours=24), geography="US") == 0
-    assert index.label("Example Event", as_of=cutoff, horizon=timedelta(hours=24), geography="GB") == 1
+    assert (
+        index.label(
+            "Example Event",
+            as_of=cutoff,
+            horizon=timedelta(hours=24),
+            geography="US",
+        )
+        == 0
+    )
+    assert (
+        index.label(
+            "Example Event",
+            as_of=cutoff,
+            horizon=timedelta(hours=24),
+            geography="GB",
+        )
+        == 1
+    )

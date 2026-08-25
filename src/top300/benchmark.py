@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 
-from .canonical import lexical_similarity
+from .canonical import PhraseAliasResolver, lexical_similarity
 from .historical import TrendEpisode
 
 
@@ -27,9 +27,18 @@ class CanonicalBenchmarkReport:
     collisions: tuple[ClusterCollision, ...]
 
 
-def _phrase_similarity(left: TrendEpisode, right: TrendEpisode) -> float:
+def _phrase_similarity(
+    left: TrendEpisode,
+    right: TrendEpisode,
+    *,
+    alias_resolver: PhraseAliasResolver | None = None,
+) -> float:
     return max(
-        lexical_similarity(left_phrase, right_phrase)
+        lexical_similarity(
+            left_phrase,
+            right_phrase,
+            alias_resolver=alias_resolver,
+        )
         for left_phrase in (left.topic, *left.aliases)
         for right_phrase in (right.topic, *right.aliases)
     )
@@ -41,6 +50,7 @@ def benchmark_canonicalizer(
     threshold: float = 0.70,
     cross_cluster_window: timedelta = timedelta(days=2),
     max_cross_cluster_pairs: int | None = 10_000,
+    alias_resolver: PhraseAliasResolver | None = None,
 ) -> CanonicalBenchmarkReport:
     """Evaluate lexical matching against provider-native Google trend structure.
 
@@ -48,6 +58,10 @@ def benchmark_canonicalizer(
     to estimate a cross-cluster collision rate; they are not asserted to be semantic
     ground-truth negatives because a provider can split one real-world event into more
     than one trend episode.
+
+    An optional explicit phrase-alias resolver can be evaluated against the exact same
+    episode set. This makes alias changes measurable without changing the benchmark's
+    evidence source or silently weakening the lexical threshold.
     """
     if not 0 <= threshold <= 1:
         raise ValueError("threshold must be between 0 and 1")
@@ -70,7 +84,14 @@ def benchmark_canonicalizer(
     for episode in ordered:
         for alias in episode.aliases:
             alias_pairs += 1
-            if lexical_similarity(episode.topic, alias) >= threshold:
+            if (
+                lexical_similarity(
+                    episode.topic,
+                    alias,
+                    alias_resolver=alias_resolver,
+                )
+                >= threshold
+            ):
                 alias_matches += 1
 
     cross_pairs = 0
@@ -88,7 +109,11 @@ def benchmark_canonicalizer(
                 stop = True
                 break
             cross_pairs += 1
-            similarity = _phrase_similarity(left, right)
+            similarity = _phrase_similarity(
+                left,
+                right,
+                alias_resolver=alias_resolver,
+            )
             if similarity >= threshold:
                 collisions.append(
                     ClusterCollision(

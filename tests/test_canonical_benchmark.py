@@ -19,7 +19,7 @@ def episode(
     )
 
 
-def test_benchmark_measures_provider_alias_recall() -> None:
+def test_benchmark_measures_provider_alias_recall_without_forcing_match() -> None:
     report = benchmark_canonicalizer(
         [
             episode(
@@ -37,8 +37,8 @@ def test_benchmark_measures_provider_alias_recall() -> None:
     )
 
     assert report.native_alias_pairs == 2
-    assert report.native_alias_matches == 2
-    assert report.native_alias_recall == 1.0
+    assert report.native_alias_matches == 1
+    assert report.native_alias_recall == 0.5
 
 
 def test_benchmark_reports_cross_cluster_collision_without_calling_it_ground_truth() -> None:

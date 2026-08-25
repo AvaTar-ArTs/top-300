@@ -6,12 +6,14 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from .adapters.google_trend_archive import GoogleTrendArchiveAdapter
 from .adapters.google_trends import GoogleTrendsRSSAdapter
 from .adapters.hacker_news import HackerNewsAdapter
 from .backtest import walk_forward_backtest
 from .dataset import load_backtest_rows, load_training_rows
 from .features import FeatureBuilder
 from .forecast import HeuristicForecaster, LearnedForecaster
+from .historical import TrendEpisode
 from .ingest import ingest_file
 from .live import LiveCollector
 from .observations import Observation
@@ -26,6 +28,20 @@ def _parse_time(value: str) -> datetime:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed
+
+
+def _episode_dict(episode: TrendEpisode) -> dict[str, object]:
+    return {
+        "topic": episode.topic,
+        "geography": episode.geography,
+        "started": episode.started.isoformat(),
+        "ended": episode.ended.isoformat() if episode.ended is not None else None,
+        "aliases": list(episode.aliases),
+        "volume_floor": episode.volume_floor,
+        "duration_is_estimate": episode.duration_is_estimate,
+        "explore_link": episode.explore_link,
+        "metadata": episode.metadata,
+    }
 
 
 def _demo_rows() -> list[Observation]:
@@ -98,6 +114,12 @@ def build_parser() -> argparse.ArgumentParser:
     live.add_argument("--geo", default="US")
     live.add_argument("--hn-limit", type=int, default=30)
     live.add_argument("--observed-at", default="now")
+    archive = commands.add_parser("archive-sample")
+    archive.add_argument("--output", required=True)
+    archive.add_argument("--geo")
+    archive.add_argument("--start")
+    archive.add_argument("--end")
+    archive.add_argument("--limit", type=int, default=1000)
     features = commands.add_parser("features")
     features.add_argument("store")
     features.add_argument("--as-of", default="now")
@@ -157,6 +179,36 @@ def _run_live(args: argparse.Namespace) -> int:
     return 0 if report.successful_sources else 1
 
 
+def _run_archive_sample(args: argparse.Namespace) -> int:
+    start = _parse_time(args.start) if args.start else None
+    end = _parse_time(args.end) if args.end else None
+    episodes = list(
+        GoogleTrendArchiveAdapter().stream(
+            geography=args.geo,
+            start=start,
+            end=end,
+            limit=args.limit,
+        )
+    )
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("w", encoding="utf-8") as handle:
+        for episode in episodes:
+            handle.write(json.dumps(_episode_dict(episode), sort_keys=True) + "\n")
+    print(
+        json.dumps(
+            {
+                "episodes": len(episodes),
+                "output": str(output),
+                "geography": args.geo,
+                "start": start.isoformat() if start is not None else None,
+                "end": end.isoformat() if end is not None else None,
+            }
+        )
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "init":
@@ -170,6 +222,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "collect-live":
         return _run_live(args)
+    if args.command == "archive-sample":
+        return _run_archive_sample(args)
     if args.command == "train":
         engine = LearnedForecaster().fit(load_training_rows(args.features_csv))
         engine.save(args.model)
@@ -186,6 +240,16 @@ def main(argv: list[str] | None = None) -> int:
                     "predictions": report.predictions,
                     "brier": report.brier,
                     "precision_at_5": report.precision_at_5,
+                    "horizons": {
+                        horizon: {
+                            "predictions": metric.predictions,
+                            "brier": metric.brier,
+                            "precision_at_5": metric.precision_at_5,
+                            "baseline_brier": metric.baseline_brier,
+                            "brier_skill": metric.brier_skill,
+                        }
+                        for horizon, metric in report.horizons.items()
+                    },
                 }
             )
         )

@@ -37,6 +37,8 @@ def load_backtest_rows(path: str | Path) -> list[BacktestRow]:
             as_of=datetime.fromisoformat(row["as_of"].replace("Z", "+00:00")),
             snapshot=_snapshot_from_row(row),
             label_24h=int(row["label_24h"]),
+            label_72h=int(row["label_72h"]),
+            label_7d=int(row["label_7d"]),
         )
         for row in rows
     ]

@@ -22,6 +22,7 @@ def test_google_trends_rss_parses_snapshot() -> None:
         </item>
       </channel>
     </rss>
+    """
     observed_at = datetime(2026, 8, 25, 0, 5, tzinfo=timezone.utc)
     rows = GoogleTrendsRSSAdapter.parse(xml, observed_at=observed_at, geography="US")
     assert {row.metric for row in rows} == {"attention", "demand"}

@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
 from top300.canonical import Canonicalizer, lexical_similarity, normalize_topic
-
 from top300.observations import Observation
 
 

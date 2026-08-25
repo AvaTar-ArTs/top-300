@@ -6,11 +6,14 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from .adapters.google_trends import GoogleTrendsRSSAdapter
+from .adapters.hacker_news import HackerNewsAdapter
 from .backtest import walk_forward_backtest
 from .dataset import load_backtest_rows, load_training_rows
 from .features import FeatureBuilder
 from .forecast import HeuristicForecaster, LearnedForecaster
 from .ingest import ingest_file
+from .live import LiveCollector
 from .observations import Observation
 from .ranking import rank_forecasts
 from .store import SignalStore
@@ -49,7 +52,11 @@ def _demo_rows() -> list[Observation]:
                         observed_at,
                     ),
                     Observation(
-                        topic, "reddit", "creator_count", max(1.0, value * 0.08), observed_at
+                        topic,
+                        "reddit",
+                        "creator_count",
+                        max(1.0, value * 0.08),
+                        observed_at,
                     ),
                     Observation(
                         topic,
@@ -76,7 +83,8 @@ def _forecast_all(store: SignalStore, as_of: datetime) -> list[dict[str, object]
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="top300", description="Forecast breakout trend opportunities"
+        prog="top300",
+        description="Forecast breakout trend opportunities",
     )
     commands = parser.add_subparsers(dest="command", required=True)
     init = commands.add_parser("init")
@@ -84,6 +92,12 @@ def build_parser() -> argparse.ArgumentParser:
     ingest = commands.add_parser("ingest")
     ingest.add_argument("store")
     ingest.add_argument("input")
+    live = commands.add_parser("collect-live")
+    live.add_argument("store")
+    live.add_argument("--snapshot", required=True)
+    live.add_argument("--geo", default="US")
+    live.add_argument("--hn-limit", type=int, default=30)
+    live.add_argument("--observed-at", default="now")
     features = commands.add_parser("features")
     features.add_argument("store")
     features.add_argument("--as-of", default="now")
@@ -105,6 +119,44 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _run_live(args: argparse.Namespace) -> int:
+    observed_at = _parse_time(args.observed_at)
+    collector = LiveCollector(
+        sources={
+            "google_trends": GoogleTrendsRSSAdapter(),
+            "hacker_news": HackerNewsAdapter(),
+        }
+    )
+    report = collector.collect(
+        store=SignalStore(args.store),
+        observed_at=observed_at,
+        snapshot_path=args.snapshot,
+        source_kwargs={
+            "google_trends": {"geography": args.geo},
+            "hacker_news": {"limit": args.hn_limit},
+        },
+    )
+    print(
+        json.dumps(
+            {
+                "observed_at": report.observed_at.isoformat(),
+                "inserted": report.inserted,
+                "successful_sources": report.successful_sources,
+                "sources": {
+                    name: {
+                        "status": health.status,
+                        "observations": health.observations,
+                        "error": health.error,
+                    }
+                    for name, health in report.sources.items()
+                },
+                "snapshot": str(args.snapshot),
+            }
+        )
+    )
+    return 0 if report.successful_sources else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "init":
@@ -116,6 +168,8 @@ def main(argv: list[str] | None = None) -> int:
         count = ingest_file(SignalStore(args.store), args.input)
         print(json.dumps({"inserted": count}))
         return 0
+    if args.command == "collect-live":
+        return _run_live(args)
     if args.command == "train":
         engine = LearnedForecaster().fit(load_training_rows(args.features_csv))
         engine.save(args.model)
@@ -123,10 +177,18 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "backtest":
         report = walk_forward_backtest(
-            load_backtest_rows(args.features_csv), min_train=args.min_train
+            load_backtest_rows(args.features_csv),
+            min_train=args.min_train,
         )
-        print(json.dumps({"predictions": report.predictions, "brier": report.brier,
-                          "precision_at_5": report.precision_at_5}))
+        print(
+            json.dumps(
+                {
+                    "predictions": report.predictions,
+                    "brier": report.brier,
+                    "precision_at_5": report.precision_at_5,
+                }
+            )
+        )
         return 0
     if args.command in {"features", "forecast", "rank"}:
         store = SignalStore(args.store)
@@ -150,12 +212,22 @@ def main(argv: list[str] | None = None) -> int:
         store.add_many(_demo_rows())
         as_of = datetime(2026, 8, 20, 7, tzinfo=timezone.utc)
         ranked = _forecast_all(store, as_of)
-        (target / "ranked.json").write_text(json.dumps(ranked, indent=2), encoding="utf-8")
+        (target / "ranked.json").write_text(
+            json.dumps(ranked, indent=2),
+            encoding="utf-8",
+        )
         with (target / "ranked.csv").open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=list(ranked[0].keys()))
             writer.writeheader()
             writer.writerows(ranked)
-        print(json.dumps({"store": str(store.path), "ranked": str(target / "ranked.json")}))
+        print(
+            json.dumps(
+                {
+                    "store": str(store.path),
+                    "ranked": str(target / "ranked.json"),
+                }
+            )
+        )
         return 0
     return 2
 

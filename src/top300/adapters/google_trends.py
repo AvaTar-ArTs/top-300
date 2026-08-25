@@ -6,7 +6,6 @@ from xml.etree import ElementTree
 
 from ..observations import Observation
 
-
 RSS_URL = "https://trends.google.com/trending/rss"
 
 

@@ -6,7 +6,6 @@ from urllib.request import Request, urlopen
 
 from ..observations import Observation
 
-
 BASE_URL = "https://hacker-news.firebaseio.com/v0"
 FetchJSON = Callable[[str], Any]
 

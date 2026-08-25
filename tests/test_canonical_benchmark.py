@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from top300.benchmark import benchmark_canonicalizer
+from top300.canonical import PhraseAliasResolver
 from top300.historical import TrendEpisode
 
 
@@ -19,26 +20,41 @@ def episode(
     )
 
 
+def alias_fixture() -> list[TrendEpisode]:
+    return [
+        episode(
+            "Apple launches iPhone 18",
+            1,
+            aliases=("iPhone 18 launch from Apple",),
+        ),
+        episode(
+            "Manchester United vs Bodo Glimt",
+            2,
+            aliases=("Man Utd vs Bodo",),
+        ),
+    ]
+
+
 def test_benchmark_measures_provider_alias_recall_without_forcing_match() -> None:
-    report = benchmark_canonicalizer(
-        [
-            episode(
-                "Apple launches iPhone 18",
-                1,
-                aliases=("iPhone 18 launch from Apple",),
-            ),
-            episode(
-                "Manchester United vs Bodo Glimt",
-                2,
-                aliases=("Man Utd vs Bodo",),
-            ),
-        ],
-        threshold=0.70,
-    )
+    report = benchmark_canonicalizer(alias_fixture(), threshold=0.70)
 
     assert report.native_alias_pairs == 2
     assert report.native_alias_matches == 1
     assert report.native_alias_recall == 0.5
+
+
+def test_benchmark_measures_explicit_alias_resolution_gain() -> None:
+    aliases = PhraseAliasResolver({"man utd": "manchester united"})
+    report = benchmark_canonicalizer(
+        alias_fixture(),
+        threshold=0.70,
+        alias_resolver=aliases,
+    )
+
+    assert report.native_alias_pairs == 2
+    assert report.native_alias_matches == 2
+    assert report.native_alias_recall == 1.0
+    assert report.cross_cluster_collisions == 0
 
 
 def test_benchmark_reports_cross_cluster_collision_without_calling_it_ground_truth() -> None:

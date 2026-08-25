@@ -1,9 +1,6 @@
 name: Live Snapshot
 
 on:
-  push:
-    branches:
-      - feat/live-data-validation
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
@@ -35,7 +32,9 @@ jobs:
           from pathlib import Path
 
           payload = json.loads(Path("live-out/snapshot.json").read_text())
+          print("collector_version:", payload["collector_version"])
           print("observed_at:", payload["observed_at"])
+          print("source_parameters:", payload["source_parameters"])
           for name, source in payload["sources"].items():
               print(name, source["status"], source["observations"])
           print("observations:", len(payload["observations"]))

@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.1.0 — 2026-08-24
+
+### Added
+
+- Google Trends Trending Now RSS live collector
+- Hacker News official API live collector
+- resilient `LiveCollector` with partial-source failure isolation
+- `collect-live` CLI command with a shared explicit observation cutoff
+- immutable JSON snapshot alongside the SQLite signal store
+- collector-version and source-parameter provenance
+- hourly GitHub Actions live snapshot workflow with 90-day artifact retention
+- live-data validation documentation and first real evidence checkpoint
+
+### Verified
+
+- first real capture at `2026-08-25T00:54:42.452814+00:00`
+- 167 observations collected
+- Google Trends: 20 observations across 10 rising searches
+- Hacker News: 147 observations across 49 stories
+- both initial live sources completed successfully
+
+### Scientific boundary
+
+- the live capture demonstrates acquisition and replay infrastructure, not forecasting skill
+- raw Google query strings and Hacker News titles are not yet treated as equivalent cross-platform topics
+- semantic topic canonicalization remains required before cross-platform confirmation is considered valid
+
 ## 1.0.0 — 2026-08-24
 
 ### Added

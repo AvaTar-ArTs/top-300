@@ -1,6 +1,11 @@
 from datetime import datetime, timedelta, timezone
 
-from top300.canonical import Canonicalizer, lexical_similarity, normalize_topic
+from top300.canonical import (
+    Canonicalizer,
+    PhraseAliasResolver,
+    lexical_similarity,
+    normalize_topic,
+)
 from top300.observations import Observation
 
 
@@ -35,6 +40,26 @@ def test_lexical_similarity_rejects_unrelated_sports_matchups() -> None:
     assert lexical_similarity(left, right) < 0.35
 
 
+def test_phrase_alias_resolver_expands_explicit_entity_alias() -> None:
+    aliases = PhraseAliasResolver({"man utd": "manchester united"})
+    score = lexical_similarity(
+        "Manchester United vs Bodo Glimt",
+        "Man Utd vs Bodo",
+        alias_resolver=aliases,
+    )
+    assert score >= 0.70
+
+
+def test_phrase_alias_resolver_does_not_create_unrelated_sports_collision() -> None:
+    aliases = PhraseAliasResolver({"man utd": "manchester united"})
+    score = lexical_similarity(
+        "Cubs vs Diamondbacks",
+        "Pirates vs Padres",
+        alias_resolver=aliases,
+    )
+    assert score < 0.35
+
+
 def test_canonicalizer_merges_conservative_aliases_across_sources() -> None:
     rows = [
         observation("Apple launches iPhone 18", "google_trends", 1),
@@ -47,6 +72,20 @@ def test_canonicalizer_merges_conservative_aliases_across_sources() -> None:
     assert merged.anchor == "Apple launches iPhone 18"
     assert merged.sources == frozenset({"google_trends", "hacker_news"})
     assert merged.cross_platform is True
+
+
+def test_canonicalizer_can_use_explicit_phrase_aliases() -> None:
+    rows = [
+        observation("Manchester United vs Bodo Glimt", "google_trends", 1),
+        observation("Man Utd vs Bodo", "hacker_news", 2),
+        observation("Cubs vs Diamondbacks", "google_trends", 3),
+    ]
+    aliases = PhraseAliasResolver({"man utd": "manchester united"})
+    clusters = Canonicalizer(threshold=0.70, alias_resolver=aliases).cluster(rows)
+    assert len(clusters) == 2
+    merged = next(cluster for cluster in clusters if len(cluster.members) == 2)
+    assert merged.anchor == "Manchester United vs Bodo Glimt"
+    assert merged.sources == frozenset({"google_trends", "hacker_news"})
 
 
 def test_first_seen_anchor_stays_stable_when_later_alias_arrives() -> None:

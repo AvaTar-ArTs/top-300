@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from top300.canonical import Canonicalizer, lexical_similarity, normalize_topic
+
 from top300.observations import Observation
 
 
@@ -19,7 +20,7 @@ def observation(
 
 
 def test_normalize_topic_is_deterministic() -> None:
-    assert normalize_topic("  Apple’s iPhone-18 Launch! ") == "apple s iphone 18 launch"
+    assert normalize_topic("  Apple\u2019s iPhone-18 Launch! ") == "apple s iphone 18 launch"
     assert normalize_topic("APPLE'S   iPhone 18 launch") == "apple s iphone 18 launch"
 
 

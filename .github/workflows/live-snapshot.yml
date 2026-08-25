@@ -1,0 +1,49 @@
+name: Live Snapshot
+
+on:
+  push:
+    branches:
+      - feat/live-data-validation
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install TOP-300
+        run: pip install -e .
+      - name: Capture live sources
+        run: |
+          mkdir -p live-out
+          top300 collect-live live-out/live.db \
+            --snapshot live-out/snapshot.json \
+            --geo US \
+            --hn-limit 50
+      - name: Summarize snapshot
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("live-out/snapshot.json").read_text())
+          print("observed_at:", payload["observed_at"])
+          for name, source in payload["sources"].items():
+              print(name, source["status"], source["observations"])
+          print("observations:", len(payload["observations"]))
+          PY
+      - name: Archive snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: top300-live-${{ github.run_id }}
+          path: live-out/
+          retention-days: 90
+          if-no-files-found: error

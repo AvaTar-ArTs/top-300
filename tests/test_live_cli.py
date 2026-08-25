@@ -43,8 +43,8 @@ def test_collect_live_cli_uses_one_cutoff_and_writes_snapshot(
     monkeypatch,
     capsys,
 ) -> None:
-    monkeypatch.setattr(cli, "GoogleTrendsRSSAdapter", FakeGoogle, raising=False)
-    monkeypatch.setattr(cli, "HackerNewsAdapter", FakeHackerNews, raising=False)
+    monkeypatch.setattr(cli, "GoogleTrendsRSSAdapter", FakeGoogle)
+    monkeypatch.setattr(cli, "HackerNewsAdapter", FakeHackerNews)
     store_path = tmp_path / "live.db"
     snapshot_path = tmp_path / "snapshot.json"
     observed_at = "2026-08-25T00:55:00+00:00"
@@ -69,6 +69,9 @@ def test_collect_live_cli_uses_one_cutoff_and_writes_snapshot(
     assert payload["inserted"] == 2
     assert payload["successful_sources"] == 2
     assert snapshot_path.exists()
+    snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    assert snapshot["source_parameters"]["google_trends"] == {"geography": "US"}
+    assert snapshot["source_parameters"]["hacker_news"] == {"limit": 5}
     rows = SignalStore(store_path).query()
     assert len(rows) == 2
     assert {row.observed_at.isoformat() for row in rows} == {observed_at}

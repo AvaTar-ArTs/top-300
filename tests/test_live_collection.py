@@ -55,6 +55,8 @@ def test_live_collection_persists_partial_success(tmp_path) -> None:
 
     snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
     assert snapshot["schema_version"] == 1
+    assert snapshot["collector_version"]
+    assert snapshot["source_parameters"] == {}
     assert snapshot["observed_at"] == observed_at.isoformat()
     assert snapshot["sources"]["working"]["status"] == "ok"
     assert snapshot["sources"]["broken"]["status"] == "error"

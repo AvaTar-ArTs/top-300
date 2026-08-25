@@ -2,7 +2,6 @@ import json
 from datetime import datetime, timezone
 
 from top300.live import LiveCollector
-
 from top300.observations import Observation
 from top300.store import SignalStore
 

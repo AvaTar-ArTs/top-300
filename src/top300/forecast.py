@@ -87,22 +87,38 @@ class LearnedForecaster:
             engine.models = pickle.load(handle)
         return engine
 
+    def _probability(
+        self,
+        horizon: str,
+        vector: np.ndarray,
+        fallback_probability: float,
+    ) -> float:
+        model = self.models.get(horizon)
+        if model is None:
+            return fallback_probability
+        return float(model.predict_proba(vector)[0, 1])
+
     def predict(self, topic: str, as_of: datetime, snapshot: FeatureSnapshot) -> ForecastResult:
-        if len(self.models) < 3:
-            return self.fallback.predict(topic, as_of, snapshot)
-        vector = np.asarray([snapshot.as_vector()], dtype=float)
         baseline = self.fallback.predict(topic, as_of, snapshot)
+        if not self.models:
+            return baseline
+
+        vector = np.asarray([snapshot.as_vector()], dtype=float)
+        if len(self.models) == 3:
+            model_kind = "learned"
+        else:
+            model_kind = "hybrid"
         return ForecastResult(
             topic=topic,
             as_of=as_of,
             state=baseline.state,
-            prob_24h=float(self.models["24h"].predict_proba(vector)[0, 1]),
-            prob_72h=float(self.models["72h"].predict_proba(vector)[0, 1]),
-            prob_7d=float(self.models["7d"].predict_proba(vector)[0, 1]),
+            prob_24h=self._probability("24h", vector, baseline.prob_24h),
+            prob_72h=self._probability("72h", vector, baseline.prob_72h),
+            prob_7d=self._probability("7d", vector, baseline.prob_7d),
             heuristic_score=baseline.heuristic_score,
             demand_forecast=baseline.demand_forecast,
             supply_forecast=baseline.supply_forecast,
             opportunity_ratio=baseline.opportunity_ratio,
             confidence=min(0.98, baseline.confidence + 0.05),
-            model_kind="learned",
+            model_kind=model_kind,
         )

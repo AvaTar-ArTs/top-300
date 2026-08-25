@@ -40,6 +40,25 @@ def test_learned_forecaster_falls_back_on_single_class() -> None:
     assert result.model_kind == "heuristic"
 
 
+def test_learned_forecaster_uses_per_horizon_fallback() -> None:
+    rows = []
+    for index in range(20):
+        value = 0.1 if index < 10 else 0.9
+        changing = 0 if index < 10 else 1
+        rows.append(TrainingRow(snap(value), changing, changing, 0))
+
+    engine = LearnedForecaster().fit(rows)
+    now = datetime(2026, 8, 24, tzinfo=timezone.utc)
+    result = engine.predict("hybrid", now, snap(0.9))
+    heuristic = HeuristicForecaster().predict("hybrid", now, snap(0.9))
+
+    assert set(engine.models) == {"24h", "72h"}
+    assert result.model_kind == "hybrid"
+    assert result.prob_24h != heuristic.prob_24h
+    assert result.prob_72h != heuristic.prob_72h
+    assert result.prob_7d == heuristic.prob_7d
+
+
 def test_learned_forecaster_round_trips(tmp_path) -> None:
     path = tmp_path / "model.pkl"
     LearnedForecaster().fit(training_rows()).save(path)

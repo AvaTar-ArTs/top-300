@@ -1,6 +1,7 @@
 import json
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -25,6 +26,8 @@ class LiveReport:
     inserted: int
     sources: dict[str, SourceHealth]
     observations: list[Observation]
+    collector_version: str
+    source_parameters: dict[str, dict[str, Any]]
 
     @property
     def successful_sources(self) -> int:
@@ -33,11 +36,20 @@ class LiveReport:
     def as_dict(self) -> dict[str, object]:
         return {
             "schema_version": 1,
+            "collector_version": self.collector_version,
             "observed_at": self.observed_at.isoformat(),
             "inserted": self.inserted,
+            "source_parameters": self.source_parameters,
             "sources": {name: asdict(value) for name, value in self.sources.items()},
             "observations": [_observation_dict(row) for row in self.observations],
         }
+
+
+def _collector_version() -> str:
+    try:
+        return version("top-300")
+    except PackageNotFoundError:
+        return "development"
 
 
 def _observation_dict(row: Observation) -> dict[str, object]:
@@ -71,7 +83,10 @@ class LiveCollector:
         observed_at = observed_at or datetime.now(timezone.utc)
         if observed_at.tzinfo is None:
             raise ValueError("observed_at must be timezone-aware")
-        source_kwargs = source_kwargs or {}
+        source_parameters = {
+            name: dict(parameters)
+            for name, parameters in (source_kwargs or {}).items()
+        }
         observations: list[Observation] = []
         health: dict[str, SourceHealth] = {}
 
@@ -79,7 +94,7 @@ class LiveCollector:
             try:
                 rows = adapter.collect(
                     observed_at=observed_at,
-                    **source_kwargs.get(name, {}),
+                    **source_parameters.get(name, {}),
                 )
             except Exception as exc:  # A source boundary must not erase other sources.
                 health[name] = SourceHealth(
@@ -97,6 +112,8 @@ class LiveCollector:
             inserted=inserted,
             sources=health,
             observations=observations,
+            collector_version=_collector_version(),
+            source_parameters=source_parameters,
         )
         if snapshot_path is not None:
             path = Path(snapshot_path)

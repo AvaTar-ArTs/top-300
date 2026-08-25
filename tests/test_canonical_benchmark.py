@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from top300.benchmark import benchmark_canonicalizer
+
 from top300.historical import TrendEpisode
 
 
